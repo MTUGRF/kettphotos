@@ -1,0 +1,130 @@
+<!--
+
+To run this demo, you need to replace 'YOUR_API_KEY' with an API key from the ArcGIS Developers dashboard.
+
+Sign up for a free account and get an API key.
+
+https://developers.arcgis.com/documentation/mapping-apis-and-services/get-started/
+
+-->
+
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Historic Photo Viewer App</title>
+  <style>
+    html, body, #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+
+    .esri-ui .esri-popup  {
+      display:  none !important;
+    }
+  </style>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css">
+  <script src="https://js.arcgis.com/4.27/"></script>
+
+  <script>
+  require([
+    "esri/config",
+    "esri/Map",
+    "esri/views/MapView",
+    "esri/layers/FeatureLayer",
+    "esri/layers/TileLayer",
+    "esri/core/reactiveUtils"
+  ], function(esriConfig, Map, MapView, FeatureLayer, TileLayer, reactiveUtils) {
+
+  esriConfig.apiKey = "YOUR_API_KEY";
+
+  const map = new Map({
+    basemap: "satellite"
+  });
+
+  const view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: [-88.3334,47.2502],
+    zoom: 13
+  });
+
+  const viewRenderer = {
+      type: "simple",  // autocasts as new SimpleRenderer()
+      symbol: {
+        type: "simple-fill",  // autocasts as new SimpleFillSymbol()
+        color: [ 105,105,105, 0.5 ],
+        outline: {  // autocasts as new SimpleLineSymbol()
+          width: 1,
+          color: "white"
+        }
+      }
+  }; 
+
+  const pointRenderer = {
+      type: "simple",  // autocasts as new SimpleRenderer()
+      symbol: {
+        type: "simple-marker",  // autocasts as new SimpleMarkerSymbol()
+        size: 12,
+        color: "#fff",
+        outline: {  // autocasts as new SimpleLineSymbol()
+          width: 0.5,
+          color: "black"
+        }
+      }
+  };
+
+  const fips_1949 = new TileLayer({
+    url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/KeweenawHSDI/Kett_19496_FIPS/MapServer?f=jsapi"
+  });
+          
+  map.add(fips_1949, 0);
+
+  //Photos point layer
+  const photosLayer = new FeatureLayer({
+    url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/Hosted/Photo_View_frame_Points/FeatureServer/0",
+    renderer: pointRenderer,
+    popupEnabled: true,
+    outFields: ["*"] 
+  });
+
+  map.add(photosLayer, 2);
+
+  // ViewSheds Polygon layer
+  const viewShedsLayer = new FeatureLayer({
+    url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/Hosted/Cartographic_View_Frame_Polygons/FeatureServer/0",
+    renderer: viewRenderer,
+    outFields: ["*"]
+  });
+
+  map.add(viewShedsLayer, 1);  
+  
+  // Create a popup template for the photos layer
+  photosLayer.popupTemplate = {
+    title:'photopoint',
+    content: "Description"    
+  };
+
+  // watch for a click on the photosLayer  
+ reactiveUtils.watch(
+  () => view.popup.selectedFeature,
+  (graphic) => {
+    if (graphic) {
+      console.log(graphic);
+      const pId = graphic.attributes.objectid;
+      console.log(pId);
+       viewShedsLayer.definitionExpression = "photopt_id = " + pId;
+    }
+  }
+);
+
+  });
+</script>
+
+</head>
+<body>
+  <div id="viewDiv"></div>
+</body>
+</html>

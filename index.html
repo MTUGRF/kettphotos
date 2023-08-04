@@ -1,13 +1,3 @@
-<!--
-
-To run this demo, you need to replace 'YOUR_API_KEY' with an API key from the ArcGIS Developers dashboard.
-
-Sign up for a free account and get an API key.
-
-https://developers.arcgis.com/documentation/mapping-apis-and-services/get-started/
-
--->
-
 <html>
 <head>
   <meta charset="utf-8">
@@ -23,8 +13,21 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
 
     .esri-ui .esri-popup  {
       display:  none !important;
+    }  
+
+    .modal-dialog {
+      position: absolute !important;
+      top: 0px;
+      right: 15px;
+    }
+
+    .modal-backdrop {
+      display: none !important;
     }
   </style>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
   <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css">
   <script src="https://js.arcgis.com/4.27/"></script>
 
@@ -37,8 +40,6 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
     "esri/layers/TileLayer",
     "esri/core/reactiveUtils"
   ], function(esriConfig, Map, MapView, FeatureLayer, TileLayer, reactiveUtils) {
-
-  esriConfig.apiKey = "YOUR_API_KEY";
 
   const map = new Map({
     basemap: "satellite"
@@ -67,7 +68,7 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
       type: "simple",  // autocasts as new SimpleRenderer()
       symbol: {
         type: "simple-marker",  // autocasts as new SimpleMarkerSymbol()
-        size: 12,
+        size: 14,
         color: "#fff",
         outline: {  // autocasts as new SimpleLineSymbol()
           width: 0.5,
@@ -76,11 +77,33 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
       }
   };
 
-  const fips_1949 = new TileLayer({
-    url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/KeweenawHSDI/Kett_19496_FIPS/MapServer?f=jsapi"
+  // Create an object to store tile layers
+  const tileLayers = {
+    fips_1949: new TileLayer({
+      url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/KeweenawHSDI/Kett_19496_FIPS/MapServer?f=jsapi",
+    }),
+    fips_1900: new TileLayer({
+      url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/KeweenawHSDI/KeTT_1900_FIPS/MapServer",
+    }),
+    fips_1908: new TileLayer({
+      url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/KeweenawHSDI/KeTT_1908_FIPS/MapServer",
+    }),
+    fips_1917: new TileLayer({
+      url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/KeweenawHSDI/KeTT_1917_FIPS/MapServer",    
+    }),
+     fips_1928: new TileLayer({
+      url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/KeweenawHSDI/KeTT_1928_FIPS/MapServer",    
+    }), 
+  };   
+
+  // ViewSheds Polygon layer
+  const viewShedsLayer = new FeatureLayer({
+    url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/Hosted/Cartographic_View_Frame_Polygons/FeatureServer/0",
+    renderer: viewRenderer,
+    outFields: ["*"]
   });
-          
-  map.add(fips_1949, 0);
+
+  map.add(viewShedsLayer, 1);  
 
   //Photos point layer
   const photosLayer = new FeatureLayer({
@@ -92,22 +115,17 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
 
   map.add(photosLayer, 2);
 
-  // ViewSheds Polygon layer
-  const viewShedsLayer = new FeatureLayer({
-    url: "https://portal1-geo.sabu.mtu.edu/server/rest/services/Hosted/Cartographic_View_Frame_Polygons/FeatureServer/0",
-    renderer: viewRenderer,
-    outFields: ["*"]
-  });
+  // Keep track of the currently active tile layers
+  let activeTileLayer = null;
 
-  map.add(viewShedsLayer, 1);  
-  
   // Create a popup template for the photos layer
   photosLayer.popupTemplate = {
     title:'photopoint',
     content: "Description"    
   };
 
-  viewShedsLayer.definitionExpression = "photopt_id is null";
+  // start out with an expression that has no matches
+  viewShedsLayer.definitionExpression = "photopt_id = 0000000000000000000000000000";
 
   // watch for a click on the photosLayer  
  reactiveUtils.watch(
@@ -116,17 +134,69 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
     if (graphic) {
       console.log(graphic);
       const pId = graphic.attributes.objectid;
+      const title = graphic.attributes.title;
+      const mapYear = graphic.attributes.mapyear;
+      const date = graphic.attributes.datecreated;
+      const filename = graphic.attributes.fileloc;
       console.log(pId);
-       viewShedsLayer.definitionExpression = "photopt_id = " + pId;
+      $('#modalTitle').html(title + "(" + date + ")");
+
+      // set definition expression to match the viewshed associated with the clicked point id.
+      viewShedsLayer.definitionExpression = "photopt_id = " + pId;
+      
+      // Query the extent of the filtered features in viewShedsLayer
+      viewShedsLayer.queryFeatures({
+        where: "photopt_id = " + pId,
+        returnGeometry: true,
+        outFields: ["*"],
+      }).then((featureSet) => {
+          const extent = featureSet.features[0].geometry.extent;
+          view.goTo({ center: extent.expand(1.3) }, { duration: 400 });
+      })      
+      document.getElementById("image").src="Photos/" + filename;
+
+      $('#photoModal').modal('show'); 
+
+       // get variable from attributes for the map year string
+       const mapstr = "fips_" + mapYear;
+       console.log(mapstr);
+      // Remove the previously active tile layer, if any
+      if (activeTileLayer) {
+        map.remove(activeTileLayer);
+      }
+
+      // Retrieve the tile layer from the tileLayers object
+      const tileLayerToAdd = tileLayers[mapstr];
+
+      if (tileLayerToAdd) {
+        // Add the retrieved tile layer to the map
+        map.add(tileLayerToAdd, 0);
+        activeTileLayer = tileLayerToAdd; // Update the active layer
+      } else {
+        console.log("Tile layer not found for the given map year:", mapYear);
+      }
     }
   }
 );
-
-  });
+});
 </script>
 
 </head>
 <body>
   <div id="viewDiv"></div>
+  <!-- Modal -->
+<div class="modal fade" backdrop="false" data-bs-keyboard="false" tabindex="-1" id="photoModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="staticBackdropLabel"><div id="modalTitle"></h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+       <img src="..." class="img-fluid" alt="Responsive image" id="image">
+      </div>      
+    </div>
+  </div>
+</div>
 </body>
 </html>

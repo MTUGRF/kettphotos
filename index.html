@@ -58,7 +58,7 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
         color: [ 105,105,105, 0.5 ],
         outline: {  // autocasts as new SimpleLineSymbol()
           width: 1,
-          color: "white"
+          color: [ 105,105,105, 0.5 ]
         }
       }
   }; 
@@ -106,6 +106,8 @@ https://developers.arcgis.com/documentation/mapping-apis-and-services/get-starte
     title:'photopoint',
     content: "Description"    
   };
+
+  viewShedsLayer.definitionExpression = "photopt_id is null";
 
   // watch for a click on the photosLayer  
  reactiveUtils.watch(

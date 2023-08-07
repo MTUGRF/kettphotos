@@ -194,6 +194,12 @@
 
       $('#photoModal').modal('show'); 
 
+      // Get a reference to the modal element
+var modal = document.getElementById('photoModal');
+
+// Remove the "show" class from the modal
+modal.classList.remove('modal');
+
       $("#image").click(function(){
         document.getElementById('testimg').src="Photos/" + filename;
         viewer.update(); 
@@ -229,7 +235,7 @@
   <div id="viewDiv"></div>
   <img id="testimg" src="picture.jpg" alt="Picture">
   <!-- Modal -->
-<div class="modal fade" data-backdrop="false" data-bs-keyboard="false" tabindex="-1" id="photoModal">
+<div class="modal" data-backdrop="false" data-bs-keyboard="false" tabindex="-1" id="photoModal">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
